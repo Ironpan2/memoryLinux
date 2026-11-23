@@ -46,6 +46,16 @@ modules:
     buildsystem: meson
     config-opts:
       - -Dwebkitgtk=false
+    build-options:
+      env:
+        # Zenity's install script invokes gtk-update-icon-cache which fails
+        # when the hicolor theme-cache file doesn't exist in /app yet. We
+        # don't need the cache; stub the tool out.
+        GTK_UPDATE_ICON_CACHE: /bin/true
+    cleanup:
+      - /share/icons
+      - /share/man
+      - /share/locale
     sources:
       - type: archive
         url: https://download.gnome.org/sources/zenity/3.44/zenity-3.44.2.tar.xz
