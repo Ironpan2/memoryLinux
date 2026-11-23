@@ -48,6 +48,7 @@ ensure_memory_installed() {
     echo ">> memory DLL swap missing — asking for memory.exe"
     picked=$("$LIBEXEC/pick-memory-exe.sh") || { echo "cancelled"; exit 1; }
     MEMORY_EXE_SRC=$picked
+    mkdir -p "$PREFIX"
     echo ">> running: $MEMORY_EXE_SRC"
     cp -- "$MEMORY_EXE_SRC" "$PREFIX/memory.exe"
     proton_run "$PREFIX/memory.exe"
