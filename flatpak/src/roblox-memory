@@ -53,7 +53,14 @@ ensure_memory_installed() {
     proton_run "$PREFIX/memory.exe"
     # Discover the installed Roblox version folder.
     ver_dir=$(ls -1 "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/" 2>/dev/null | head -1 || true)
-    if [ -z "$ver_dir" ]; then echo "memory.exe did not install Roblox"; exit 1; fi
+    if [ -z "$ver_dir" ]; then
+      echo "ERROR: Roblox is not installed in the prefix."
+      echo "       First-run should have downloaded RobloxPlayerInstaller.exe automatically;"
+      echo "       if network was blocked it may have failed. Try:  flatpak run $APP --reset"
+      echo "       then relaunch. If it keeps failing, drop a RobloxPlayerInstaller.exe into"
+      echo "       \$HOME/.var/app/$APP/data/ and relaunch."
+      exit 1
+    fi
     ROBLOX_VERSION=$ver_dir
     install -m644 "$LIBEXEC/dxvk.conf" "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/$ROBLOX_VERSION/dxvk.conf"
     save_config

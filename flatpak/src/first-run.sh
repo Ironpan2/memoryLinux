@@ -43,4 +43,22 @@ for reg in win10.reg mouse-fix.reg webview2-flags.reg roblox-uri.reg; do
   fi
 done
 
+# memory.exe only swaps DLLs into an already-installed Roblox client, so
+# we need to run Roblox's own bootstrapper first. Fetch it fresh each
+# first-run so we land on the current channel.
+INSTALLER="$PREFIX/RobloxPlayerInstaller.exe"
+if [ ! -f "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions" ] || \
+   [ -z "$(ls "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions" 2>/dev/null)" ]; then
+  echo ">> downloading RobloxPlayerInstaller"
+  curl -fL --retry 3 -o "$INSTALLER" https://www.roblox.com/download/client
+  echo ">> installing Roblox client (this takes a minute)"
+  python3 "$PROTON_DIR/proton" waitforexitandrun "$INSTALLER" /S || true
+  # Wait up to 90s for the Versions/ folder to populate.
+  for i in $(seq 1 90); do
+    ver=$(ls "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/" 2>/dev/null | head -1)
+    [ -n "$ver" ] && { echo ">> roblox installed: $ver"; break; }
+    sleep 1
+  done
+fi
+
 echo ">> first-run setup complete"
