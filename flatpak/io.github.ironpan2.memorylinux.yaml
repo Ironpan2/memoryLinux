@@ -1,4 +1,4 @@
-app-id: io.github.ironpan2.memoryLinux
+app-id: io.github.ironpan2.memorylinux
 runtime: org.freedesktop.Platform
 runtime-version: '24.08'
 sdk: org.freedesktop.Sdk
@@ -98,9 +98,9 @@ modules:
       - install -Dm644 src/win10.reg             /app/libexec/roblox-memory/win10.reg
       - install -Dm644 src/mouse-fix.reg         /app/libexec/roblox-memory/mouse-fix.reg
       - install -Dm644 src/roblox-uri.reg        /app/libexec/roblox-memory/roblox-uri.reg
-      - install -Dm644 io.github.ironpan2.memoryLinux.desktop  /app/share/applications/io.github.ironpan2.memoryLinux.desktop
-      - install -Dm644 io.github.ironpan2.memoryLinux.metainfo.xml /app/share/metainfo/io.github.ironpan2.memoryLinux.metainfo.xml
-      - test -f icon/roblox-memory.png && install -Dm644 icon/roblox-memory.png /app/share/icons/hicolor/256x256/apps/io.github.ironpan2.memoryLinux.png || true
+      - install -Dm644 io.github.ironpan2.memorylinux.desktop  /app/share/applications/io.github.ironpan2.memorylinux.desktop
+      - install -Dm644 io.github.ironpan2.memorylinux.metainfo.xml /app/share/metainfo/io.github.ironpan2.memorylinux.metainfo.xml
+      - test -f icon/roblox-memory.png && install -Dm644 icon/roblox-memory.png /app/share/icons/hicolor/256x256/apps/io.github.ironpan2.memorylinux.png || true
     sources:
       - type: git
         url: https://github.com/Ironpan2/memoryLinux.git

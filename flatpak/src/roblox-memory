@@ -6,7 +6,7 @@
 #  roblox-memory --install-memory    -> pick a memory.exe and run its install
 set -eu
 
-APP=io.github.ironpan2.memoryLinux
+APP=io.github.ironpan2.memorylinux
 DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
 CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/$APP/config
 PROTON_DIR=$DATA_HOME/$APP/GE-Proton

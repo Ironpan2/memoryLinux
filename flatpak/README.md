@@ -26,10 +26,10 @@ sha256sum <(curl -sL https://files.pythonhosted.org/packages/py3/l/lief/lief-1.0
 sha256sum <(curl -sL https://download.gnome.org/sources/zenity/4.0/zenity-4.0.1.tar.xz)
 ```
 
-Drop each digest into the matching `sha256:` field in `io.github.ironpan2.memoryLinux.yaml`, then:
+Drop each digest into the matching `sha256:` field in `io.github.ironpan2.memorylinux.yaml`, then:
 
 ```sh
-flatpak-builder --force-clean --install --user build-dir io.github.ironpan2.memoryLinux.yaml
+flatpak-builder --force-clean --install --user build-dir io.github.ironpan2.memorylinux.yaml
 ```
 
 The install downloads Proton + WebView2 as `extra-data`, so the install step is fairly large (~700 MB).
@@ -37,10 +37,10 @@ The install downloads Proton + WebView2 as `extra-data`, so the install step is 
 ## First run
 
 ```sh
-flatpak run io.github.ironpan2.memoryLinux
+flatpak run io.github.ironpan2.memorylinux
 ```
 
-- Unpacks Proton to `~/.var/app/io.github.ironpan2.memoryLinux/data/GE-Proton`.
+- Unpacks Proton to `~/.var/app/io.github.ironpan2.memorylinux/data/GE-Proton`.
 - Patches `kernelbase.dll` with `patch-kernelbase.py`.
 - Initializes a Wine prefix at `.../prefix/pfx`.
 - Installs WebView2 into the prefix.
