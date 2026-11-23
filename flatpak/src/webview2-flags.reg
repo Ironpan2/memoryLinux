@@ -1,0 +1,4 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Environment]
+"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"="--no-sandbox --disable-gpu --disable-gpu-sandbox --use-gl=swiftshader --disable-features=IsolateOrigins,site-per-process"

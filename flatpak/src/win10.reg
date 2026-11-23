@@ -1,0 +1,12 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Wine]
+"Version"="win10"
+
+[HKEY_LOCAL_MACHINE\Software\Microsoft\Windows NT\CurrentVersion]
+"CurrentVersion"="10.0"
+"CurrentMajorVersionNumber"=dword:0000000a
+"CurrentMinorVersionNumber"=dword:00000000
+"CurrentBuild"="19045"
+"CurrentBuildNumber"="19045"
+"ProductName"="Windows 10 Pro"

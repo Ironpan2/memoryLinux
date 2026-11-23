@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.ironpan2.memoryLinux</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Roblox (memory, Proton)</name>
+  <summary>Run Roblox + the memory executor on Linux via a patched Proton</summary>
+  <description>
+    <p>
+      Bundles a Proton build whose kernelbase.dll exports SetProcessValidCallTargets
+      as a no-op so Roblox's Byfron/Hyperion loader runs under Wine. Installs
+      WebView2 into the prefix for the in-app browser, registers roblox:// and
+      roblox-player:// URI handlers to the sandbox, and tunes DXVK for stability.
+    </p>
+    <p>
+      memory.exe is not bundled — on first launch the app asks you to pick it
+      from disk. The DLL swap runs once; after that web login + Play launches
+      straight into the game with the executor overlay active.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.ironpan2.memoryLinux.desktop</launchable>
+  <url type="homepage">https://github.com/ironpan2/roblox-memory</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2026-11-22"/>
+  </releases>
+</component>

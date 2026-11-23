@@ -1,0 +1,7 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Wine\X11 Driver]
+"GrabPointer"="Y"
+"GrabFullscreen"="Y"
+"UseTakeFocus"="N"
+"Decorated"="Y"

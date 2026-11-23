@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Roblox (memory, Proton)
+GenericName=Roblox with memory executor
+Comment=Sandboxed Roblox + memory executor under Proton with the Byfron CFG stub, WebView2, and roblox-player:// URI handler
+Exec=roblox-memory %u
+TryExec=roblox-memory
+Icon=io.github.ironpan2.memoryLinux
+Terminal=false
+Categories=Game;
+MimeType=x-scheme-handler/roblox;x-scheme-handler/roblox-player;
+StartupWMClass=RobloxPlayerBeta.exe
+X-Flatpak=io.github.ironpan2.memoryLinux

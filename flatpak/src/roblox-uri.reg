@@ -1,0 +1,9 @@
+REGEDIT4
+
+[HKEY_CURRENT_USER\Software\Classes\roblox]
+@="URL: Roblox Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\roblox-player]
+@="URL: Roblox Protocol"
+"URL Protocol"=""

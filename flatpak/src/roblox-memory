@@ -1,0 +1,132 @@
+#!/bin/bash
+# Main entrypoint inside the flatpak sandbox.
+#  roblox-memory                     -> interactive launcher (login via browser, then re-invoke with URI)
+#  roblox-memory <roblox-player:...> -> launch into a specific game
+#  roblox-memory --reset             -> wipe prefix and reinstall
+#  roblox-memory --install-memory    -> pick a memory.exe and run its install
+set -eu
+
+APP=io.github.ironpan2.memoryLinux
+DATA_HOME=${XDG_DATA_HOME:-$HOME/.local/share}
+CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}/$APP/config
+PROTON_DIR=$DATA_HOME/$APP/GE-Proton
+PREFIX=$DATA_HOME/$APP/prefix
+PROTON_TAR=/app/extra/GE-Proton.tar.gz
+WEBVIEW2_EXE=/app/extra/MicrosoftEdgeWebview2Setup.exe
+LIBEXEC=/app/libexec/roblox-memory
+LOG=$DATA_HOME/$APP/launcher.log
+
+mkdir -p "$(dirname "$CONFIG")" "$(dirname "$LOG")" "$DATA_HOME/$APP"
+: > "$LOG"
+exec > >(tee -a "$LOG") 2>&1
+
+load_config() { [ -f "$CONFIG" ] && . "$CONFIG"; : "${ROBLOX_VERSION:=}"; : "${MEMORY_EXE_SRC:=}"; }
+save_config() { umask 077; printf 'ROBLOX_VERSION=%q\nMEMORY_EXE_SRC=%q\n' "$ROBLOX_VERSION" "$MEMORY_EXE_SRC" > "$CONFIG"; }
+
+proton_run() {
+  # Minimal wrapper around Proton's `waitforexitandrun` without steam-runtime.
+  export STEAM_COMPAT_CLIENT_INSTALL_PATH=$DATA_HOME/$APP
+  export STEAM_COMPAT_DATA_PATH=$PREFIX
+  export WINEPREFIX=$PREFIX/pfx
+  export PROTONPATH=$PROTON_DIR
+  export WINEDEBUG=-all
+  export DXVK_LOG_LEVEL=none
+  python3 "$PROTON_DIR/proton" waitforexitandrun "$@"
+}
+
+ensure_first_run() {
+  if [ ! -d "$PROTON_DIR/files" ]; then
+    echo ">> first-run setup starting"
+    "$LIBEXEC/first-run.sh" "$PROTON_TAR" "$PROTON_DIR" "$PREFIX" "$WEBVIEW2_EXE" "$LIBEXEC"
+    echo ">> first-run setup done"
+  fi
+}
+
+ensure_memory_installed() {
+  load_config
+  if [ -z "$ROBLOX_VERSION" ] || [ ! -f "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/$ROBLOX_VERSION/RobloxPlayerBeta.dll" ]; then
+    echo ">> memory DLL swap missing — asking for memory.exe"
+    picked=$("$LIBEXEC/pick-memory-exe.sh") || { echo "cancelled"; exit 1; }
+    MEMORY_EXE_SRC=$picked
+    echo ">> running: $MEMORY_EXE_SRC"
+    cp -- "$MEMORY_EXE_SRC" "$PREFIX/memory.exe"
+    proton_run "$PREFIX/memory.exe"
+    # Discover the installed Roblox version folder.
+    ver_dir=$(ls -1 "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/" 2>/dev/null | head -1 || true)
+    if [ -z "$ver_dir" ]; then echo "memory.exe did not install Roblox"; exit 1; fi
+    ROBLOX_VERSION=$ver_dir
+    install -m644 "$LIBEXEC/dxvk.conf" "$PREFIX/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/$ROBLOX_VERSION/dxvk.conf"
+    save_config
+    register_uri_handler
+  fi
+}
+
+register_uri_handler() {
+  # xdg-data/applications is a mounted, writable directory: the host's app DB
+  # sees anything we drop there and resolves roblox-player:// to this flatpak.
+  dst=$DATA_HOME/applications
+  mkdir -p "$dst"
+  cat > "$dst/$APP.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Roblox (memory, Proton)
+Exec=flatpak run --command=roblox-memory $APP %u
+Terminal=false
+MimeType=x-scheme-handler/roblox;x-scheme-handler/roblox-player;
+NoDisplay=true
+EOF
+  if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database "$dst" >/dev/null 2>&1 || true
+  fi
+  if command -v xdg-mime >/dev/null 2>&1; then
+    xdg-mime default "$APP.desktop" x-scheme-handler/roblox-player >/dev/null 2>&1 || true
+    xdg-mime default "$APP.desktop" x-scheme-handler/roblox        >/dev/null 2>&1 || true
+  fi
+}
+
+case "${1:-}" in
+  --reset)
+    echo ">> resetting prefix + config"
+    rm -rf "$PREFIX" "$CONFIG"
+    ;;
+  --install-memory)
+    ensure_first_run
+    rm -f "$CONFIG"
+    ensure_memory_installed
+    echo ">> install complete"
+    ;;
+  --help|-h)
+    cat <<USAGE
+Usage:
+  roblox-memory                      launch (install memory.exe first time)
+  roblox-memory <roblox-player:...>  launch straight into a game
+  roblox-memory --install-memory     (re)pick memory.exe and run its install
+  roblox-memory --reset              wipe prefix and config
+USAGE
+    ;;
+  roblox:*|roblox-player:*)
+    ensure_first_run
+    ensure_memory_installed
+    proton_run \
+      "C:\\users\\steamuser\\AppData\\Local\\Roblox\\Versions\\$ROBLOX_VERSION\\RobloxPlayerBeta.exe" \
+      "$1"
+    ;;
+  '')
+    ensure_first_run
+    ensure_memory_installed
+    cat <<MSG
+
+memory + Proton ready. To play:
+  1. open roblox.com in your normal browser
+  2. log in, click Play on any game
+  3. your browser will offer to open the link with "Roblox (memory, Proton)"
+
+Or invoke directly:  flatpak run $APP 'roblox-player:1+launchmode:play+...'
+
+MSG
+    ;;
+  *)
+    echo "unknown argument: $1  (try --help)" >&2
+    exit 2
+    ;;
+esac
