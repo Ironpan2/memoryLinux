@@ -40,18 +40,28 @@ modules:
         sha256: 41ff868f5328fc8e5237a9e1f4718590e0ee9180c1422b3e4948b7116ba4517c
         dest-filename: lief-1.0.0-cp312-abi3-manylinux_2_28_x86_64.whl
 
+  # Pre-create the hicolor theme dir + index.theme so zenity's meson
+  # install step (which runs gtk-update-icon-cache on /app/share/icons/
+  # hicolor) has something to write a .icon-theme.cache next to.
+  - name: hicolor-stub
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/icons/hicolor
+      - |
+        cat > /app/share/icons/hicolor/index.theme <<'EOF'
+        [Icon Theme]
+        Name=Hicolor
+        Comment=Fallback icon theme
+        Hidden=true
+        Directories=
+        EOF
+
   # Zenity 3.44 (GTK3) for the memory.exe picker dialog. Zenity 4.x needs
   # GTK4 + libadwaita which aren't shipped in freedesktop//24.08.
   - name: zenity
     buildsystem: meson
     config-opts:
       - -Dwebkitgtk=false
-    build-options:
-      env:
-        # Zenity's install script invokes gtk-update-icon-cache which fails
-        # when the hicolor theme-cache file doesn't exist in /app yet. We
-        # don't need the cache; stub the tool out.
-        GTK_UPDATE_ICON_CACHE: /bin/true
     cleanup:
       - /share/icons
       - /share/man
