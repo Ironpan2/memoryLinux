@@ -100,7 +100,10 @@ modules:
       - install -Dm644 src/roblox-uri.reg        /app/libexec/roblox-memory/roblox-uri.reg
       - install -Dm644 io.github.ironpan2.memoryLinux.desktop  /app/share/applications/io.github.ironpan2.memoryLinux.desktop
       - install -Dm644 io.github.ironpan2.memoryLinux.metainfo.xml /app/share/metainfo/io.github.ironpan2.memoryLinux.metainfo.xml
-      - install -Dm644 icon/roblox-memory.png    /app/share/icons/hicolor/256x256/apps/io.github.ironpan2.memoryLinux.png
+      - test -f icon/roblox-memory.png && install -Dm644 icon/roblox-memory.png /app/share/icons/hicolor/256x256/apps/io.github.ironpan2.memoryLinux.png || true
     sources:
-      - type: dir
-        path: .
+      - type: git
+        url: https://github.com/Ironpan2/memoryLinux.git
+        commit: 89ba7c20b5e936afdfc41bdd2b3e76181e6cc33e
+    subdir: flatpak
+    builddir: false
