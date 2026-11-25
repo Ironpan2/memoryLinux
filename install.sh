@@ -35,6 +35,8 @@ need bwrap    || die "install bubblewrap (apt/dnf/pacman install bubblewrap)"
 need python3
 need xdg-mime
 need update-desktop-database
+need cabextract    # winetricks dotnet48 needs this to unpack the MSI
+need unzip         # winetricks also uses this
 if ! python3 -c "import lief" 2>/dev/null; then
   say "installing python3 lief in a user venv (~/.local/share/memoryLinux/venv)"
   mkdir -p "$HOME/.local/share/memoryLinux"
@@ -193,7 +195,25 @@ done
 echo "installed Roblox version: $ver"
 
 # ----------------------------------------------------------------------
-say "8. installing WebView2"
+say "8a. installing .NET Framework 4.8 via winetricks (needed by memory.exe)"
+# memory.exe is a ConfuserEx-packed .NET Framework 4 program. Its metadata
+# uses the #Schema stream that Wine Mono and system Mono don't implement
+# ('Unknown heap type: #Schema'). Real .NET 4.8 handles it.
+WT="$INSTALL_DIR/winetricks"
+[ -x "$WT" ] || { curl -fL -o "$WT" https://raw.githubusercontent.com/Winetricks/winetricks/master/src/winetricks && chmod +x "$WT"; }
+if [ ! -f "$INSTALL_DIR/pfx/drive_c/windows/Microsoft.NET/Framework64/v4.0.30319/mscoreei.dll" ]; then
+  # Point winetricks at our prefix + wine binary; run non-interactively.
+  WINE="$PROTON_DIR/files/bin/wine" \
+  WINESERVER="$PROTON_DIR/files/bin/wineserver" \
+  WINEPREFIX="$INSTALL_DIR/pfx" \
+  WINETRICKS_LATEST_VERSION_CHECK=disabled \
+  "$WT" -q --force dotnet48 2>&1 | tail -15 || echo "(winetricks dotnet48 may have reported errors — often cosmetic; continuing)"
+else
+  echo ".NET 4.8 already present"
+fi
+
+# ----------------------------------------------------------------------
+say "8b. installing WebView2"
 ./umu.sh "$WV2_INST" /silent /install 2>&1 | tail -5 || true
 
 # ----------------------------------------------------------------------

@@ -12,11 +12,11 @@ Run Roblox + the **memory** executor on Linux via a patched GE-Proton. Single ba
 
 | Distro             | Install                                                                     |
 |--------------------|-----------------------------------------------------------------------------|
-| Ubuntu / Debian    | `sudo apt install git curl bubblewrap python3 python3-venv python3-pip zenity xdg-utils desktop-file-utils` |
-| Fedora             | `sudo dnf install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`             |
-| Arch / Manjaro     | `sudo pacman -S git curl bubblewrap python zenity xdg-utils desktop-file-utils`                            |
-| openSUSE           | `sudo zypper install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`          |
-| Void               | `sudo xbps-install -S git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`         |
+| Ubuntu / Debian    | `sudo apt install git curl bubblewrap python3 python3-venv python3-pip zenity xdg-utils desktop-file-utils cabextract unzip` |
+| Fedora             | `sudo dnf install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils cabextract unzip`             |
+| Arch / Manjaro     | `sudo pacman -S git curl bubblewrap python zenity xdg-utils desktop-file-utils cabextract unzip`                            |
+| openSUSE           | `sudo zypper install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils cabextract unzip`          |
+| Void               | `sudo xbps-install -S git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils cabextract unzip`         |
 
 ### 2. Clone and run the installer
 
@@ -73,6 +73,7 @@ rm    ~/.local/share/applications/roblox-memory.desktop
 
 ## Known issues
 
+- **"Unknown heap type: #Schema" when running memory.exe** — this means .NET Framework 4.x isn't installed in the prefix yet. The installer now runs `winetricks -q dotnet48` automatically; if you built from an older clone, re-pull and re-run `./install.sh` (it's idempotent).
 - **Heavy games can crash with `EXCEPTION_ACCESS_VIOLATION`.** Confirmed via minidump analysis to be inside the executor's own anonymous memory region (same low-16-bit offset across DXVK and WineD3D runs — not a Wine/Proton/DXVK bug). Lower in-game graphics quality or try a newer `memory.exe` build.
 - **Captcha panel in the in-app login is blank** on some setups. Workaround is to log in on your real browser and launch games via the registered URI handler (the default flow this installer sets up).
 
