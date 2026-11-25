@@ -1,67 +1,55 @@
 # memoryLinux
 
-Run Roblox + the **memory** executor on Linux via a patched Proton, packaged as a Flatpak.
+Run Roblox + the **memory** executor on Linux via a patched GE-Proton. Single bash installer — no flatpak, no package managers to wrestle with. Mirrors a known-working setup reached end-to-end: Byfron CFG stub, WebView2 for login, `roblox-player://` URI handler so browser-based play works, DXVK stability tuning, X11 pointer-grab for first-person.
 
-The flatpak bundles GE-Proton with a one-time binary patch to `kernelbase.dll` (adds a no-op `SetProcessValidCallTargets` stub so Byfron/Hyperion stops aborting under Wine), Microsoft Edge WebView2 for the in-app auth panels, DXVK stability tuning, a Win10 fingerprint, X11 pointer-grab, and `roblox-player://` URI handlers. `memory.exe` is **not** bundled — the flatpak prompts for it on first run and you point it at your own copy.
+`memory.exe` is **not bundled** — the installer prompts for it and you point at your own copy.
 
 ---
 
-## Install (fresh machine)
+## Install
 
-### 1. Install `flatpak` + `flatpak-builder` + `git`
+### 1. Prerequisites
 
-| Distro              | Command                                                      |
-|---------------------|--------------------------------------------------------------|
-| Ubuntu / Debian     | `sudo apt install flatpak flatpak-builder git`               |
-| Fedora              | `sudo dnf install flatpak flatpak-builder git`               |
-| Arch / Manjaro      | `sudo pacman -S flatpak flatpak-builder git`                 |
-| openSUSE            | `sudo zypper install flatpak flatpak-builder git`            |
-| Void                | `sudo xbps-install -S flatpak flatpak-builder git`           |
+| Distro             | Install                                                                     |
+|--------------------|-----------------------------------------------------------------------------|
+| Ubuntu / Debian    | `sudo apt install git curl bubblewrap python3 python3-venv python3-pip zenity xdg-utils desktop-file-utils` |
+| Fedora             | `sudo dnf install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`             |
+| Arch / Manjaro     | `sudo pacman -S git curl bubblewrap python zenity xdg-utils desktop-file-utils`                            |
+| openSUSE           | `sudo zypper install git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`          |
+| Void               | `sudo xbps-install -S git curl bubblewrap python3 python3-pip zenity xdg-utils desktop-file-utils`         |
 
-### 2. Add Flathub (once per user)
-
-```sh
-flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-```
-
-### 3. Pull the runtime + SDK (one-time, ~1.5 GB)
-
-```sh
-flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
-```
-
-### 4. Clone this repo
+### 2. Clone and run the installer
 
 ```sh
 git clone https://github.com/Ironpan2/memoryLinux
-cd memoryLinux/flatpak
+cd memoryLinux
+./install.sh
 ```
 
-### 5. Build + install the flatpak (~700 MB extra-data: GE-Proton + WebView2)
+What it does:
 
-```sh
-flatpak-builder --force-clean --user --install build-dir io.github.ironpan2.memorylinux.yaml
-```
+1. Downloads **GE-Proton 11-1** (~500 MB) to `~/.local/share/Steam/compatibilitytools.d/`.
+2. Patches `kernelbase.dll` — adds a no-op `SetProcessValidCallTargets` stub so Byfron stops aborting under Wine.
+3. Fetches **umu-launcher** and drops a bubblewrap wrapper at `~/Games/roblox-memory/umu.sh`.
+4. Downloads the **Roblox client installer** + **Microsoft Edge WebView2** bootstrapper.
+5. Pops a **file picker** asking for your `memory.exe`.
+6. Spins up the Wine prefix, installs Roblox, installs WebView2, applies registry tweaks (Win10 fingerprint + X11 pointer grab + WebView2 browser flags).
+7. Runs `memory.exe` once to swap the fake `RobloxPlayerBeta.dll` + drop `Mem3API.dll`.
+8. Drops a DXVK stability `dxvk.conf` next to RobloxPlayerBeta.
+9. Registers `roblox://` and `roblox-player://` handlers on your host so browser Play buttons route into the sandbox.
 
-### 6. First launch — installs Roblox + prompts for your `memory.exe`
+Install is **idempotent** — re-run to repair.
 
-```sh
-flatpak run io.github.ironpan2.memorylinux
-```
+### 3. Play
 
-A file picker opens. Point it at **your own** `memory.exe`. It runs once inside the prefix to install the fake `RobloxPlayerBeta.dll` + `Mem3API.dll` into the Roblox version folder.
-
-### 7. Play
-
-1. Open your normal browser on Linux, go to [roblox.com](https://roblox.com), log in.
+1. Open your normal browser, go to [roblox.com](https://roblox.com), log in.
 2. Click **Play** on any game.
-3. Your browser offers *"Roblox (memory, Proton)"* — accept.
+3. Browser offers *"Roblox (memory, Proton)"* — accept.
 4. Game launches under the sandbox with the memory executor overlay active.
 
-Direct launch with a URI (bypass the browser):
-
+Direct URI launch (no browser prompt):
 ```sh
-flatpak run io.github.ironpan2.memorylinux 'roblox-player:1+launchmode:play+gameinfo:...'
+~/Games/roblox-memory/launch-uri.sh 'roblox-player:1+launchmode:play+gameinfo:...'
 ```
 
 ---
@@ -69,58 +57,55 @@ flatpak run io.github.ironpan2.memorylinux 'roblox-player:1+launchmode:play+game
 ## Maintenance
 
 ```sh
-# re-pick your memory.exe (new build, different file)
-flatpak run io.github.ironpan2.memorylinux --install-memory
+# re-pick memory.exe (new build, different file)
+INSTALL_PICK=1 ./install.sh
 
-# wipe prefix + config, start over
-flatpak run io.github.ironpan2.memorylinux --reset
+# nuke and start over
+rm -rf ~/Games/roblox-memory
+rm -rf ~/.local/share/Steam/compatibilitytools.d/GE-Proton11-1
+rm    ~/.local/share/applications/roblox-memory.desktop
 
-# full uninstall
-flatpak uninstall --user io.github.ironpan2.memorylinux
-rm -rf ~/.var/app/io.github.ironpan2.memorylinux
-```
-
----
-
-## Updating
-
-```sh
-cd /path/to/memoryLinux
-git pull
-cd flatpak
-flatpak-builder --force-clean --user --install build-dir io.github.ironpan2.memorylinux.yaml
+# just run something inside the prefix (e.g. regedit, winecfg)
+~/Games/roblox-memory/umu.sh winecfg
 ```
 
 ---
 
 ## Known issues
 
-- **Heavy games can crash with `EXCEPTION_ACCESS_VIOLATION`.** The fault is inside the executor's own anonymous memory region (same low-16-bit offset across DXVK and WineD3D), not Wine/Proton. Lower in-game graphics quality or try a newer `memory.exe` build.
-- **Captcha panel in the in-app login is blank** on some setups. Workaround is to log in on your real browser and launch games via the `roblox-player://` handler (the default flow).
+- **Heavy games can crash with `EXCEPTION_ACCESS_VIOLATION`.** Confirmed via minidump analysis to be inside the executor's own anonymous memory region (same low-16-bit offset across DXVK and WineD3D runs — not a Wine/Proton/DXVK bug). Lower in-game graphics quality or try a newer `memory.exe` build.
+- **Captcha panel in the in-app login is blank** on some setups. Workaround is to log in on your real browser and launch games via the registered URI handler (the default flow this installer sets up).
 
 ---
 
-## What's inside
+## Layout
 
 ```
-flatpak/
-├── io.github.ironpan2.memorylinux.yaml        flatpak-builder manifest
-├── io.github.ironpan2.memorylinux.desktop     scheme handler + launcher
-├── io.github.ironpan2.memorylinux.metainfo.xml
-├── README.md                                   build/design notes
-└── src/
-    ├── roblox-memory             entrypoint (--install-memory, --reset, URI dispatch)
-    ├── first-run.sh              unpacks Proton, patches kernelbase, installs Roblox + WebView2
-    ├── patch-kernelbase.py       LIEF patch adding SetProcessValidCallTargets stub
-    ├── pick-memory-exe.sh        zenity/kdialog file picker
-    ├── dxvk.conf                 DXVK stability tuning
-    ├── win10.reg                 Win10 fingerprint
-    ├── mouse-fix.reg             X11 pointer grab (for first-person)
-    ├── webview2-flags.reg        WebView2 browser flags
-    ├── roblox-uri.reg            in-prefix URI handlers
-    └── _true.sh                  noop used to init the prefix
+./
+├── install.sh          one-shot installer (what you run)
+├── flatpak/            legacy flatpak attempt, superseded; .reg files + kernelbase patch script live here
+│   ├── src/
+│   │   ├── patch-kernelbase.py     LIEF patch adding SetProcessValidCallTargets stub
+│   │   ├── win10.reg
+│   │   ├── mouse-fix.reg
+│   │   ├── webview2-flags.reg
+│   │   ├── roblox-uri.reg
+│   │   └── dxvk.conf
+│   └── io.github.ironpan2.memorylinux.yaml
+└── README.md
 ```
 
-See `flatpak/README.md` for build-side technical notes.
+The `flatpak/` directory is kept as an archive — it still carries the useful `.reg` and `patch-kernelbase.py` assets that `install.sh` consumes.
 
-Flathub submission: [flathub/flathub#11317](https://github.com/flathub/flathub/pull/11317) — expected to be rejected per Flathub policy, so this repo is the canonical distribution channel.
+---
+
+## What gets installed where
+
+| Path                                                                          | What                             |
+|-------------------------------------------------------------------------------|----------------------------------|
+| `~/Games/roblox-memory/`                                                      | prefix, launcher, memory.exe     |
+| `~/Games/roblox-memory/pfx/`                                                  | Wine prefix with Roblox          |
+| `~/.local/share/Steam/compatibilitytools.d/GE-Proton11-1/`                    | patched Proton                   |
+| `~/.local/share/umu/umu-run`                                                  | umu-launcher                     |
+| `~/.local/share/memoryLinux/venv/`                                            | python venv w/ LIEF (one-time)   |
+| `~/.local/share/applications/roblox-memory.desktop`                           | URI handler for `roblox-player:` |
