@@ -19,12 +19,34 @@ PROTON_DIR="$HOME/.local/share/Steam/compatibilitytools.d/${PROTON_VER}"
 UMU_DIR="$HOME/.local/share/umu"
 WEBVIEW2_URL="https://go.microsoft.com/fwlink/p/?LinkId=2124703"
 ROBLOX_INSTALLER_URL="https://www.roblox.com/download/client"
+RBX_CDN="https://setup.rbxcdn.com"
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 ASSETS="$REPO_ROOT/flatpak/src"       # the .reg files + patch script live here
 
 say() { printf '\n== %s ==\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "missing command: $1"; }
+
+# ----------------------------------------------------------------------
+# Modes: no arg = full install.  --update = refresh Roblox + redo DLL swap.
+#        --downgrade <hash> = install a specific Roblox version by hash.
+MODE=install
+TARGET_HASH=""
+case "${1:-}" in
+  --update) MODE=update ;;
+  --downgrade) MODE=downgrade; TARGET_HASH="${2:-}"
+               [ -n "$TARGET_HASH" ] || die "--downgrade needs a version hash (e.g. 2c6fd5e09aaf4cfa)"
+               TARGET_HASH="${TARGET_HASH#version-}"      # strip prefix if the user kept it
+               ;;
+  --help|-h) cat <<HELP
+usage:
+  ./install.sh                         full install
+  ./install.sh --update                re-run Roblox installer + redo memory.exe DLL swap
+  ./install.sh --downgrade <hash>      install a specific Roblox version (hash like 2c6fd5e09aaf4cfa)
+  INSTALL_PICK=1 ./install.sh          repick your memory.exe mid-install
+HELP
+    exit 0 ;;
+esac
 
 # ----------------------------------------------------------------------
 say "0. checking prerequisites"
@@ -36,7 +58,7 @@ need python3
 need xdg-mime
 need update-desktop-database
 need cabextract    # winetricks dotnet48 needs this to unpack the MSI
-need unzip         # winetricks also uses this
+need unzip         # winetricks also uses this; also used by --downgrade
 if ! python3 -c "import lief" 2>/dev/null; then
   say "installing python3 lief in a user venv (~/.local/share/memoryLinux/venv)"
   mkdir -p "$HOME/.local/share/memoryLinux"
@@ -48,6 +70,122 @@ else
 fi
 
 mkdir -p "$INSTALL_DIR" "$PROTON_DIR" "$UMU_DIR" "$(dirname "$PROTON_DIR")"
+
+# ----------------------------------------------------------------------
+# Helpers used by --update and --downgrade (declared early so modes can
+# short-circuit after prereqs; defined after the full-install flow).
+redo_dll_swap() {
+  local target_ver="$1"
+  cd "$INSTALL_DIR"
+  [ -f memory.exe ] || die "no memory.exe in $INSTALL_DIR (run full install.sh first)"
+  echo ">> running memory.exe for $target_ver"
+  ./umu.sh memory.exe 2>&1 | tail -5 || true
+  sleep 20
+  pkill -f "RobloxPlayerBeta|memory.exe|wineserver.*roblox-memory" 2>/dev/null || true
+  # Drop DXVK conf next to the new RobloxPlayerBeta.exe too.
+  cp -f "$ASSETS/dxvk.conf" \
+    "$INSTALL_DIR/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/$target_ver/dxvk.conf" 2>/dev/null || true
+}
+
+do_update() {
+  [ -f "$INSTALL_DIR/umu.sh" ] || die "no umu.sh yet — run ./install.sh (no flag) first"
+  cd "$INSTALL_DIR"
+  RBX_INST="$INSTALL_DIR/RobloxPlayerInstaller.exe"
+  say "update: refetching RobloxPlayerInstaller"
+  curl -fL --progress-bar -o "$RBX_INST" "$ROBLOX_INSTALLER_URL"
+  say "update: installing newest Roblox client"
+  ./umu.sh "$RBX_INST" /S 2>&1 | tail -10 || true
+  # Give the installer up to 3 min to write a new version folder.
+  prev_ver=$(ls -1t "$INSTALL_DIR/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions" 2>/dev/null | grep '^version-' | head -1)
+  for i in $(seq 1 180); do
+    newest=$(ls -1t "$INSTALL_DIR/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions" 2>/dev/null | grep '^version-' | head -1)
+    [ -n "$newest" ] && [ "$newest" != "$prev_ver" ] && break
+    sleep 1
+  done
+  newest=$(ls -1t "$INSTALL_DIR/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions" 2>/dev/null | grep '^version-' | head -1)
+  [ -n "$newest" ] || die "Roblox update produced no new version folder"
+  echo "updated to: $newest"
+  redo_dll_swap "$newest"
+  echo; echo "update complete — launch-uri.sh auto-detects the newest version."
+}
+
+# Map each Roblox package (.zip) to the subdirectory inside the version
+# folder it expands into. Matches the official client's internal map.
+pkg_dest() {
+  case "$1" in
+    RobloxApp.zip|Libraries.zip|LibrariesQt5.zip|WebView2.zip|redist.zip) echo "" ;;
+    WebView2RuntimeInstaller.zip) echo "WebView2RuntimeInstaller/" ;;
+    shaders.zip) echo "shaders/" ;;
+    ssl.zip)     echo "ssl/" ;;
+    extracontent-luapackages.zip) echo "ExtraContent/LuaPackages/" ;;
+    extracontent-translations.zip) echo "ExtraContent/translations/" ;;
+    extracontent-models.zip) echo "ExtraContent/models/" ;;
+    extracontent-textures.zip) echo "ExtraContent/textures/" ;;
+    extracontent-places.zip) echo "ExtraContent/places/" ;;
+    content-avatar.zip)      echo "content/avatar/" ;;
+    content-configs.zip)     echo "content/configs/" ;;
+    content-fonts.zip)       echo "content/fonts/" ;;
+    content-sky.zip)         echo "content/sky/" ;;
+    content-sounds.zip)      echo "content/sounds/" ;;
+    content-textures3.zip)   echo "content/textures/" ;;
+    content-models.zip)      echo "content/models/" ;;
+    content-platform-fonts.zip)   echo "PlatformContent/pc/fonts/" ;;
+    content-platform-dictionaries.zip) echo "PlatformContent/pc/shared_compression_dictionaries/" ;;
+    content-terrain.zip)     echo "PlatformContent/pc/terrain/" ;;
+    content-textures2.zip)   echo "PlatformContent/pc/textures/" ;;
+    content-studio_svg_textures.zip) echo "content/studio_svg_textures/" ;;
+    content-qt_fonts.zip)    echo "ExtraContent/qt_fonts/" ;;
+    *) echo "" ;;    # unknown packages go to root
+  esac
+}
+
+do_downgrade() {
+  [ -f "$INSTALL_DIR/umu.sh" ] || die "no umu.sh yet — run ./install.sh (no flag) first"
+  local hash="$1"
+  local target_ver="version-$hash"
+  local vdir="$INSTALL_DIR/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/$target_ver"
+  say "downgrade: fetching manifest for $target_ver"
+  local man="$INSTALL_DIR/manifest-$hash.txt"
+  curl -fL -o "$man" "$RBX_CDN/$target_ver-rbxPkgManifest.txt" \
+    || die "no manifest at $RBX_CDN/$target_ver-rbxPkgManifest.txt (bad hash?)"
+  mkdir -p "$vdir"
+  say "downgrade: downloading packages into $vdir"
+  local tmp="$INSTALL_DIR/.dl-$hash"
+  mkdir -p "$tmp"
+  # Lines matching *.zip are packages; download + unzip each into its dest.
+  grep -E '^[a-zA-Z0-9_-]+\.zip$' "$man" | while read -r pkg; do
+    local dest="$vdir/$(pkg_dest "$pkg")"
+    mkdir -p "$dest"
+    echo "  -> $pkg  ($dest)"
+    curl -fsSL -o "$tmp/$pkg" "$RBX_CDN/$target_ver-$pkg"
+    unzip -q -o "$tmp/$pkg" -d "$dest" || die "failed to unpack $pkg"
+  done
+  rm -rf "$tmp"
+  # AppSettings.xml tells the client its own version id.
+  cat > "$vdir/AppSettings.xml" <<XML
+<?xml version="1.0" encoding="UTF-8"?>
+<Settings>
+  <ContentFolder>content</ContentFolder>
+  <BaseUrl>http://www.roblox.com</BaseUrl>
+</Settings>
+XML
+  echo "downgraded Roblox to: $target_ver"
+  # Redo DLL swap against this version folder.
+  redo_dll_swap "$target_ver"
+  echo; echo "downgrade complete — launch-uri.sh will auto-pick the newest folder;"
+  echo "if you have a NEWER version alongside, 'touch' this one to make it newest:"
+  echo "   touch '$vdir'"
+}
+
+# Short-circuit for non-install modes (needs full install already present).
+if [ "$MODE" = update ]; then
+  do_update
+  exit 0
+fi
+if [ "$MODE" = downgrade ]; then
+  do_downgrade "$TARGET_HASH"
+  exit 0
+fi
 
 # ----------------------------------------------------------------------
 say "1. GE-Proton ${PROTON_VER}"
@@ -238,13 +376,24 @@ pkill -f "RobloxPlayerBeta|memory.exe|wineserver.*roblox-memory" 2>/dev/null || 
 
 # ----------------------------------------------------------------------
 say "12. registering roblox-player:// handler on host"
-cat > "$INSTALL_DIR/launch-uri.sh" <<EOSH
+# Dynamic version lookup: pick the newest Versions/version-* folder every
+# launch so Roblox auto-updates or --downgrade installs become active
+# without having to re-run install.sh.
+cat > "$INSTALL_DIR/launch-uri.sh" <<'EOSH'
 #!/bin/bash
-BASE=\$(cd "\$(dirname "\$0")" && pwd)
-URI=\$1
-exec "\$BASE/umu.sh" \\
-  'C:\\users\\steamuser\\AppData\\Local\\Roblox\\Versions\\$ver\\RobloxPlayerBeta.exe' \\
-  "\$URI"
+BASE=$(cd "$(dirname "$0")" && pwd)
+URI=$1
+VERS_DIR="$BASE/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions"
+# Newest version by mtime; falls back to anything if mtime ties.
+ver=$(ls -1t "$VERS_DIR" 2>/dev/null | grep '^version-' | head -1)
+if [ -z "$ver" ]; then
+  notify-send "Roblox (memory)" "No Roblox version installed. Run install.sh --update." 2>/dev/null
+  echo "no Roblox version in $VERS_DIR" >&2
+  exit 1
+fi
+exec "$BASE/umu.sh" \
+  "C:\\users\\steamuser\\AppData\\Local\\Roblox\\Versions\\$ver\\RobloxPlayerBeta.exe" \
+  "$URI"
 EOSH
 chmod +x "$INSTALL_DIR/launch-uri.sh"
 

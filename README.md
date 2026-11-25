@@ -54,6 +54,44 @@ Direct URI launch (no browser prompt):
 
 ---
 
+## Updating Roblox
+
+When Roblox servers reject your client as outdated (`"Please update to the latest Roblox"`), from inside your `memoryLinux/` clone run:
+
+```sh
+./install.sh --update
+```
+
+What this does:
+1. Downloads the newest `RobloxPlayerInstaller.exe` from roblox.com.
+2. Runs it inside the sandbox — Roblox installs a new `version-XXXXXXXX/` folder next to the old one.
+3. Re-runs your `memory.exe` so the DLL swap lands in the new version folder.
+4. Drops `dxvk.conf` next to the new `RobloxPlayerBeta.exe`.
+
+The URI handler (`launch-uri.sh`) auto-picks the newest `version-*` folder by mtime at every launch — no manual pointer updates needed.
+
+## Downgrading Roblox
+
+For when the latest version broke something and you need a specific earlier one — e.g. your `memory.exe` only patches cleanly against `version-2c6fd5e09aaf4cfa`:
+
+```sh
+./install.sh --downgrade 2c6fd5e09aaf4cfa
+```
+
+What this does:
+1. Fetches `setup.rbxcdn.com/version-<hash>-rbxPkgManifest.txt`.
+2. Downloads every `.zip` package the manifest lists and extracts each into its correct subdirectory inside a new `version-<hash>/` folder.
+3. Writes a minimal `AppSettings.xml` so the client knows its own id.
+4. Re-runs `memory.exe` so the DLL swap lands in this folder.
+
+After downgrade, the handler will still auto-pick the newest folder. If you have a newer `version-*` alongside and want to force the downgrade to win, just touch it:
+
+```sh
+touch ~/Games/roblox-memory/pfx/drive_c/users/steamuser/AppData/Local/Roblox/Versions/version-2c6fd5e09aaf4cfa
+```
+
+Where to find valid version hashes: Roblox version-tracking sites publish them publicly; e.g. [rblx.trade/version](https://rblx.trade/version), [rdd.weao.xyz](https://rdd.weao.xyz/), or the `clientsettings.roblox.com` API. The hash is the hex suffix on `version-XXXXXXXX`.
+
 ## Maintenance
 
 ```sh
