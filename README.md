@@ -23,8 +23,12 @@ Run Roblox + the **memory** executor on Linux via a patched GE-Proton. Single ba
 ```sh
 git clone https://github.com/Ironpan2/memoryLinux
 cd memoryLinux
-./install.sh
+./install.sh         # terminal
+# — or —
+./gui.sh             # zenity GUI with all the same actions
 ```
+
+The GUI gives you one menu for everything: Install, Update Roblox, Downgrade Roblox, Re-pick memory.exe, Launch, Run in prefix, Status, Reset.
 
 What it does:
 
